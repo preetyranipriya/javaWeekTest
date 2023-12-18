@@ -1,0 +1,3 @@
+annotation and documents both present:
+[classPath:C:\Users\preety.priya\Downloads\demo\Assignment1\src\main\java\Documentation\Employee.java, javadoc: * This is a method attendance  inside  a class Employee1. * * @MethodDocumentation "This is a method pension  inside employee1"  public void attendance() {  System.out.println("This is the attendance "); } } }]
+[classPath:C:\Users\preety.priya\Downloads\demo\Assignment1\src\main\java\Documentation\Manager.java, javadoc: * This is a method salary inside Manager. * * @MethodDocumentation "This is a method salary  inside Manager"  @MethodDocumentation("This is a method pension inside manager") public void pension() { System.out.println("pension"); } }]

@@ -1,0 +1,191 @@
+plugins {
+    id 'java'
+    id 'groovy'
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+java {
+    sourceCompatibility='21'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation 'com.google.guava:guava:30.1-jre'
+    implementation 'com.github.javaparser:javaparser-core:3.25.7'
+   // implementation 'com.github.javaparser:javaparser-core:3.28.0'
+    implementation 'org.codehaus.groovy:groovy-all:3.0.9'
+    implementation 'com.github.javaparser:javaparser-core:2.0.0'
+}
+task findAnnotatedClassesAndMethods(type: JavaExec) {
+    main = 'Documentation/JavaDoc'
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+
+
+task scanDocumentation {
+    doLast {
+        def sourceDir = 'src/main/java'
+        def reportDir = 'documentation_reports'
+        def documentedClassesFile=file("${reportDir}/documented_Classes_File")
+        def undocumentedClassFile = file("${reportDir}/undocumentation_Classes.txt")
+        def annotatedwithdocumentationFile = file("${reportDir}/annotatedwithdocumentation_File.txt")
+        def unannotatedandundocumentatedFile = file("${reportDir}/unannotatedandundocumentated_File.txt")
+        // def methodnojavadocFile=file("${reportDir}/methodNojavadoc.txt)")
+        // Create the report directory if it doesn't exist
+        if (!file(reportDir).exists()) {
+            file(reportDir).mkdirs()
+        }
+
+        // Initialize reports
+        def documentedClasses=[]
+        def undocumentedClass = []
+        def annotatedMethod = []
+        def unannotedMethod = []
+        //def inconsistentDocReport = []
+        //def methodnojavadoc=[]
+
+
+
+
+        // Iterate through Java files
+        fileTree(dir: sourceDir, include: '**/*.java').each { file ->
+            def fileContent = readFileContent(file)
+            // Exclude annotation interfaces from processing
+//            if (file.name == 'ClassDocumentation.java' || file.name == 'MethodDocumentation.java') {
+//                annotationPresent<<"Annotation Present for class:${file.name}\\n"
+//            }
+            def insideClassJavadoc = false
+            def classannotation=false;
+            def methodannotation=false;
+            def classJavadoc = ""
+            def insideMethodJavadoc = false
+            def methodJavadoc = ""
+
+            // Read the content of the file
+            //def fileContent = readFileContent(file)
+
+            // Check class-level annotation
+            file.eachLine { line ->
+                // Extract Javadoc for class
+                if (line.trim().startsWith("/**")) {
+                    insideClassJavadoc = true
+                    classJavadoc = line.trim().substring(3)
+                } else if (insideClassJavadoc && line.trim().endsWith("*/")) {
+                    classJavadoc += " " + line.trim().substring(0, line.trim().length() - 2)
+                    insideClassJavadoc = true
+                } else if (insideClassJavadoc) {
+                    classJavadoc += " " + line.trim()
+                }
+
+
+            // Check for inconsistent method annotations
+
+                if (line.trim().startsWith("/**")) {
+                    insideMethodJavadoc = true
+                    methodJavadoc = line.trim().substring(3)
+                } else if (insideMethodJavadoc && line.trim().endsWith("*/")) {
+                    methodJavadoc += " " + line.trim().substring(0, line.trim().length() - 2)
+                    insideMethodJavadoc = true
+                } else if (insideMethodJavadoc) {
+                    methodJavadoc += " " + line.trim()
+                }
+                if (line.contains("@ClassDocumentation")) {
+                    classannotation=true;
+                    // documentedClasses << [classPath: file.absolutePath, javadoc: classJavadoc]
+                } else if (line.contains("@MethodDocumentation")) {
+                    methodannotation=true;
+                    //annotatedMethod << [methodPath: file.absolutePath + "#" + line.split("\\(")[0].split("\\s+")[1], javadoc: methodJavadoc]
+                }
+
+
+            }
+            if((insideClassJavadoc|| insideMethodJavadoc) && !classannotation && !methodannotation)
+            {
+                if(insideClassJavadoc)
+                documentedClasses << [classPath: file.absolutePath, javadoc: classJavadoc]
+                else if(insideMethodJavadoc)
+                    documentedClasses << [classPath: file.absolutePath, javadoc: methodJavadoc]
+
+            }
+            else if((insideClassJavadoc || insideMethodJavadoc) && (classannotation || methodannotation))
+            {
+                if(insideClassJavadoc)
+                    annotatedMethod << [classPath: file.absolutePath, javadoc: classJavadoc]
+                else if(insideMethodJavadoc)
+                    annotatedMethod << [classPath: file.absolutePath, javadoc: methodJavadoc]
+
+
+
+            }
+            else if((!insideClassJavadoc && !methodJavadoc) && (classannotation || methodannotation))
+            {
+                if(classannotation)
+                {
+                    undocumentedClass << [classPath: file.absolutePath, javadoc: classJavadoc]
+
+                }
+                else if(methodannotation)
+                {
+                    undocumentedClass << [classPath: file.absolutePath, javadoc: methodJavadoc]
+
+                }
+            }
+            else if((!insideClassJavadoc && !methodJavadoc) && (!classannotation && !methodannotation))
+            {
+                unannotedMethod << [classPath: file.absolutePath, javadoc: classJavadoc]
+
+
+            }
+        }
+
+//        fileTree(dir: sourceDir, include: '**/*.java').each { file ->
+//            //def insideClassJavadoc = false
+//            //def insideMethodJavadoc = false
+//
+//            file.eachLine { line ->
+//                // Check for missing class Javadoc
+//                if (line.contains("class ") && !line.contains("/**")) {
+//                    undocumentedClass << file.absolutePath
+//                }
+//
+//                // Check for missing method Javadoc
+//                if (line.contains("(") && line.contains(")") && !line.contains("/**")) {
+//                    def methodName = line.split("\\(")[0].split("\\s+")[0]
+//                    unannotedMethod << file.absolutePath + "#" + methodName
+//                }
+//            }
+//        }
+
+        // Write reports to file
+        documentedClassesFile.text="Annotation not Present (@ClassDocumentation And @MethodDocumentation) only documents present:\\n${documentedClasses.join('\n')}"
+        undocumentedClassFile.text = "Missing the Documents but  annotation is prsent:\n${undocumentedClass.join('\n')}"
+        annotatedwithdocumentationFile.text = "annotation and documents both present:\n${annotatedMethod.join('\n')}"
+        unannotatedandundocumentatedFile.text = "Neither documents nor annotation is present:\n${unannotedMethod.join('\n')}"
+        //methodnojavadocFile.text = "Inconsistent Annotations:\n${methodnojavadoc.join('\n')}"
+        logger.lifecycle "Documentation scan completed. Check ${documentedClassesFile}, ${undocumentedClassFile},${annotatedwithdocumentationFile}and ${unannotatedandundocumentatedFile} for the reports."
+    }
+}
+
+static def readFileContent(file) {
+    file.text
+}
+
+def containsAnnotation(content, annotation) {
+    content.contains(annotation)
+}
